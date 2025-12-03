@@ -114,3 +114,41 @@ A web application where users can earn and spend tokens by viewing and creating 
 ## Vercel Deploy Trigger
 
 This small update is used to trigger a fresh Vercel deployment for diagnosing build issues. After this deploy finishes, check the Vercel project deployment logs and paste the final error lines here if it still fails.
+
+## Deploying to Vercel (recommended workflow)
+
+Follow these steps to deploy securely and avoid committing secrets to the repo.
+
+1) Create a Vercel Personal Token
+   - Open https://vercel.com/account/tokens and create a **Personal Token** with the `Read & Write` scope for your team.
+   - Copy the token; you'll add it to GitHub Secrets.
+
+2) Add GitHub Secrets to your repository
+   - Go to your GitHub repo → Settings → Secrets and variables → Actions → New repository secret.
+   - Add these three secrets:
+     - `VERCEL_TOKEN` — the Vercel personal token you created
+     - `NEXT_PUBLIC_SUPABASE_URL` — `https://onexidyexeympdttdwlq.supabase.co`
+     - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — your Supabase anon/public key
+
+3) Confirm the repository contains `.github/workflows/deploy-to-vercel.yml`
+   - This repository includes a workflow that will build and deploy to Vercel when you push to `main`.
+
+4) Push to `main` (or create a test commit)
+   - The GitHub Actions workflow will run, build the app using the secrets (without exposing them in the repo), try to set Vercel project envs, and deploy to production.
+
+5) Disable Deployment Protection in Vercel (if enabled)
+   - If visiting the production URL redirects you to a Vercel authentication page, open the Vercel dashboard:
+     - https://vercel.com/dashboard → select team `Subodh 's projects` → project `darazfreebie-jqbd` → Settings → Access & Privacy (or Deployment Protection).
+     - Turn off any toggle that requires authentication or protection for deployments. Save changes.
+
+6) Re-deploy (if needed)
+   - After changing settings, re-run the workflow by pushing another commit or use the Vercel dashboard to redeploy the latest commit.
+
+7) Verify the production URL
+   - Open: `https://darazfreebie-jqbd-mp1g7ay6q-subodh-s-projects.vercel.app`
+   - You should see your app (not Vercel auth page) once protection is off and the successful deployment completed.
+
+Security notes
+- Do NOT commit `.env.local` or any real keys to the repository. Use `.env.example` for documentation.
+- Rotate the Supabase anon key or Vercel token if you suspect they've been exposed.
+
