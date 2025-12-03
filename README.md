@@ -110,3 +110,7 @@ A web application where users can earn and spend tokens by viewing and creating 
 - Ad categories and filtering
 - Advanced targeting options
 - User ratings and reputation system
+
+## Vercel Deploy Trigger
+
+This small update is used to trigger a fresh Vercel deployment for diagnosing build issues. After this deploy finishes, check the Vercel project deployment logs and paste the final error lines here if it still fails.
