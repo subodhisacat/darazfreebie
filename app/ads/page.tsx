@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { getAvailableAds, logAdView, logAdClick } from '@/lib/adService'
+import { getAvailableAds, logAdClick } from '@/lib/adService'
 import Link from 'next/link'
 import type { Ad } from '@/lib/supabase'
 
@@ -12,7 +12,6 @@ export default function BrowseAds() {
   const [ads, setAds] = useState<Ad[]>([])
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [viewedAds, setViewedAds] = useState<Set<number>>(new Set())
   const [tokens, setTokens] = useState(0)
   const [lastInteractionTime, setLastInteractionTime] = useState<number>(0)
   const [cooldownRemaining, setCooldownRemaining] = useState<number>(0)
@@ -41,7 +40,7 @@ export default function BrowseAds() {
         setTokens(profile.tokens)
       }
 
-      // Fetch available ads
+      // Fetch available ads (exclude already clicked ads)
       const availableAds = await getAvailableAds(session.user.id)
       setAds(availableAds)
       setLoading(false)
@@ -49,36 +48,6 @@ export default function BrowseAds() {
 
     fetchData()
   }, [router])
-
-  const handleViewAd = async (ad: Ad) => {
-    if (viewedAds.has(ad.id) || !user) return
-
-    const now = Date.now()
-    const timeSinceLastInteraction = now - lastInteractionTime
-    if (timeSinceLastInteraction < 10000) {
-      setCooldownRemaining(Math.ceil((10000 - timeSinceLastInteraction) / 1000))
-      return
-    }
-
-    try {
-      await logAdView(ad.id, user.id)
-      setViewedAds((prev) => new Set(prev).add(ad.id))
-      setLastInteractionTime(now)
-
-      // Update tokens
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tokens')
-        .eq('id', user.id)
-        .single()
-
-      if (profile) {
-        setTokens(profile.tokens)
-      }
-    } catch (error) {
-      console.error('Error viewing ad:', error)
-    }
-  }
 
   const handleClickLink = async (ad: Ad) => {
     if (!user) return
@@ -91,10 +60,15 @@ export default function BrowseAds() {
     }
 
     try {
+      // ✅ Log click & reward ONLY 1 token in backend
       await logAdClick(ad.id, user.id)
+
       setLastInteractionTime(now)
 
-      // Update tokens
+      // ✅ Remove ad immediately from UI (cannot be reused)
+      setAds(prev => prev.filter(item => item.id !== ad.id))
+
+      // ✅ Refresh tokens
       const { data: profile } = await supabase
         .from('profiles')
         .select('tokens')
@@ -105,11 +79,14 @@ export default function BrowseAds() {
         setTokens(profile.tokens)
       }
 
-      // Open link
+      // ✅ Open Daraz Link
       window.open(ad.link, '_blank')
+
     } catch (error) {
       console.error('Error clicking ad:', error)
     }
+
+    setCooldownRemaining(0)
   }
 
   const handleLogout = async () => {
@@ -130,33 +107,22 @@ export default function BrowseAds() {
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center gap-8">
-            <Link
-              href="/ads"
-              className="text-2xl font-bold text-indigo-600"
-            >
+            <Link href="/ads" className="text-2xl font-bold text-indigo-600">
               Token Ads
             </Link>
             <div className="flex gap-4">
-              <Link
-                href="/ads"
-                className="text-gray-600 hover:text-indigo-600 font-medium"
-              >
+              <Link href="/ads" className="text-gray-600 hover:text-indigo-600 font-medium">
                 Browse Ads
               </Link>
-              <Link
-                href="/dashboard"
-                className="text-gray-600 hover:text-indigo-600 font-medium"
-              >
+              <Link href="/dashboard" className="text-gray-600 hover:text-indigo-600 font-medium">
                 My Ads
               </Link>
-              <Link
-                href="/profile"
-                className="text-gray-600 hover:text-indigo-600 font-medium"
-              >
+              <Link href="/profile" className="text-gray-600 hover:text-indigo-600 font-medium">
                 Profile
               </Link>
             </div>
           </div>
+
           <div className="flex items-center gap-6">
             <div className="text-2xl font-bold text-yellow-600">
               {tokens} 🪙
@@ -194,32 +160,25 @@ export default function BrowseAds() {
                     <h2 className="text-xl font-bold text-gray-800 flex-1">
                       {ad.title}
                     </h2>
-                    {viewedAds.has(ad.id) && (
-                      <span className="bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-                        Viewed
-                      </span>
-                    )}
                   </div>
+
                   <p className="text-gray-600 text-sm mb-4">
                     by {(ad as any).profiles?.username || 'Anonymous'}
                   </p>
+
                   <p className="text-gray-700 mb-4">{ad.description}</p>
+
+                  {/* ✅ SINGLE BUTTON ONLY */}
                   <div className="flex gap-3 mb-4">
-                    <button
-                      onClick={() => handleViewAd(ad)}
-                      disabled={viewedAds.has(ad.id) || cooldownRemaining > 0}
-                      className="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-bold py-2 px-4 rounded-lg transition"
-                    >
-                      {viewedAds.has(ad.id) ? 'Viewed' : cooldownRemaining > 0 ? `Wait ${cooldownRemaining}s` : 'View (+1 🪙)'}
-                    </button>
                     <button
                       onClick={() => handleClickLink(ad)}
                       disabled={cooldownRemaining > 0}
                       className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-bold py-2 px-4 rounded-lg transition"
                     >
-                      {cooldownRemaining > 0 ? `Wait ${cooldownRemaining}s` : 'Click (+5 🪙)'}
+                      {cooldownRemaining > 0 ? `Wait ${cooldownRemaining}s` : 'Open Ad (+1 🪙)'}
                     </button>
                   </div>
+
                   <a
                     href={ad.link}
                     target="_blank"
