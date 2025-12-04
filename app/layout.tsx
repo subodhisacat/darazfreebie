@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Token Ad Platform',
+  title: 'Daraz Freebie',
   description: 'Earn tokens by viewing ads, spend tokens to advertise',
 }
 
