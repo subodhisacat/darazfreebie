@@ -1,61 +1,24 @@
 import { supabase } from './supabase'
 
-const TOKENS_PER_VIEW = 1
-const TOKENS_PER_CLICK = 5
+const TOKENS_PER_CLICK = 1 // ✅ ONLY 1 TOKEN PER AD
 
-export async function logAdView(adId: number, userId: string) {
+// ✅ LOG AD CLICK (ONLY ONCE PER USER PER AD)
+export async function logAdClick(adId: number, userId: string) {
   try {
-    // Check if user already viewed this ad
+    // 1️⃣ Check if already clicked
     const { data: existing } = await supabase
       .from('ad_interactions')
       .select('id')
       .eq('ad_id', adId)
       .eq('user_id', userId)
-      .eq('type', 'view')
+      .eq('type', 'click')
       .single()
 
     if (existing) {
-      console.log('User already viewed this ad')
-      return
+      throw new Error('Ad already clicked by this user')
     }
 
-    // Log the view
-    const { error: insertError } = await supabase
-      .from('ad_interactions')
-      .insert({
-        ad_id: adId,
-        user_id: userId,
-        type: 'view',
-      })
-
-    if (insertError) throw insertError
-
-    // Award tokens
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('tokens')
-      .eq('id', userId)
-      .single()
-
-    if (profileError) throw profileError
-
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ tokens: profile.tokens + TOKENS_PER_VIEW })
-      .eq('id', userId)
-
-    if (updateError) throw updateError
-
-    return true
-  } catch (error) {
-    console.error('Error logging ad view:', error)
-    throw error
-  }
-}
-
-export async function logAdClick(adId: number, userId: string) {
-  try {
-    // Log the click
+    // 2️⃣ Insert click record
     const { error: insertError } = await supabase
       .from('ad_interactions')
       .insert({
@@ -66,7 +29,7 @@ export async function logAdClick(adId: number, userId: string) {
 
     if (insertError) throw insertError
 
-    // Award tokens
+    // 3️⃣ Get current tokens
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('tokens')
@@ -75,6 +38,7 @@ export async function logAdClick(adId: number, userId: string) {
 
     if (profileError) throw profileError
 
+    // 4️⃣ Add ONLY +1 token
     const { error: updateError } = await supabase
       .from('profiles')
       .update({ tokens: profile.tokens + TOKENS_PER_CLICK })
@@ -89,6 +53,7 @@ export async function logAdClick(adId: number, userId: string) {
   }
 }
 
+// ✅ CREATE AD (UNCHANGED, SAFE)
 export async function createAd(
   userId: string,
   title: string,
@@ -97,7 +62,6 @@ export async function createAd(
   tokensToSpend: number
 ) {
   try {
-    // Check if user has enough tokens
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('tokens')
@@ -109,7 +73,6 @@ export async function createAd(
       throw new Error('Insufficient tokens')
     }
 
-    // Create ad
     const { data: ad, error: adError } = await supabase
       .from('ads')
       .insert({
@@ -124,7 +87,6 @@ export async function createAd(
 
     if (adError) throw adError
 
-    // Deduct tokens
     const { error: updateError } = await supabase
       .from('profiles')
       .update({ tokens: profile.tokens - tokensToSpend })
@@ -139,14 +101,28 @@ export async function createAd(
   }
 }
 
+// ✅ GET ADS THAT USER HAS NOT CLICKED
 export async function getAvailableAds(userId: string) {
   try {
-    // Get ads, excluding the user's own ads
-    const { data: ads, error } = await supabase
+    const { data: clickedAds } = await supabase
+      .from('ad_interactions')
+      .select('ad_id')
+      .eq('user_id', userId)
+      .eq('type', 'click')
+
+    const clickedIds = clickedAds?.map(a => a.ad_id) || []
+
+    let query = supabase
       .from('ads')
       .select('*,profiles(username)')
       .neq('user_id', userId)
       .order('created_at', { ascending: false })
+
+    if (clickedIds.length > 0) {
+      query = query.not('id', 'in', `(${clickedIds.join(',')})`)
+    }
+
+    const { data: ads, error } = await query
 
     if (error) throw error
     return ads || []
@@ -156,6 +132,156 @@ export async function getAvailableAds(userId: string) {
   }
 }
 
+// ✅ GET USER OWN ADS
+export async function getUserAds(userId: string) {
+  try {
+    const { data: ads, error } = await supabase
+      .from('ads')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return ads || []
+  } catch (error) {
+    console.error('Error fetching user ads:', error)
+    throw error
+  }
+}import { supabase } from './supabase'
+
+const TOKENS_PER_CLICK = 1 // ✅ ONLY 1 TOKEN PER AD
+
+// ✅ LOG AD CLICK (ONLY ONCE PER USER PER AD)
+export async function logAdClick(adId: number, userId: string) {
+  try {
+    // 1️⃣ Check if already clicked
+    const { data: existing } = await supabase
+      .from('ad_interactions')
+      .select('id')
+      .eq('ad_id', adId)
+      .eq('user_id', userId)
+      .eq('type', 'click')
+      .single()
+
+    if (existing) {
+      throw new Error('Ad already clicked by this user')
+    }
+
+    // 2️⃣ Insert click record
+    const { error: insertError } = await supabase
+      .from('ad_interactions')
+      .insert({
+        ad_id: adId,
+        user_id: userId,
+        type: 'click',
+      })
+
+    if (insertError) throw insertError
+
+    // 3️⃣ Get current tokens
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('tokens')
+      .eq('id', userId)
+      .single()
+
+    if (profileError) throw profileError
+
+    // 4️⃣ Add ONLY +1 token
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ tokens: profile.tokens + TOKENS_PER_CLICK })
+      .eq('id', userId)
+
+    if (updateError) throw updateError
+
+    return true
+  } catch (error) {
+    console.error('Error logging ad click:', error)
+    throw error
+  }
+}
+
+// ✅ CREATE AD (UNCHANGED, SAFE)
+export async function createAd(
+  userId: string,
+  title: string,
+  description: string,
+  link: string,
+  tokensToSpend: number
+) {
+  try {
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('tokens')
+      .eq('id', userId)
+      .single()
+
+    if (profileError) throw profileError
+    if (profile.tokens < tokensToSpend) {
+      throw new Error('Insufficient tokens')
+    }
+
+    const { data: ad, error: adError } = await supabase
+      .from('ads')
+      .insert({
+        user_id: userId,
+        title,
+        description,
+        link,
+        tokens_spent: tokensToSpend,
+      })
+      .select()
+      .single()
+
+    if (adError) throw adError
+
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ tokens: profile.tokens - tokensToSpend })
+      .eq('id', userId)
+
+    if (updateError) throw updateError
+
+    return ad
+  } catch (error) {
+    console.error('Error creating ad:', error)
+    throw error
+  }
+}
+
+// ✅ GET ADS THAT USER HAS NOT CLICKED
+export async function getAvailableAds(userId: string) {
+  try {
+    const { data: clickedAds } = await supabase
+      .from('ad_interactions')
+      .select('ad_id')
+      .eq('user_id', userId)
+      .eq('type', 'click')
+
+    const clickedIds = clickedAds?.map(a => a.ad_id) || []
+
+    let query = supabase
+      .from('ads')
+      .select('*,profiles(username)')
+      .neq('user_id', userId)
+      .order('created_at', { ascending: false })
+
+    if (clickedIds.length > 0) {
+      query = query.not('id', 'in', `(${clickedIds.join(',')})`)
+    }
+
+    const { data: ads, error } = await query
+
+    if (error) throw error
+    return ads || []
+  } catch (error) {
+    console.error('Error fetching ads:', error)
+    throw error
+  }
+}
+
+// ✅ GET USER OWN ADS
 export async function getUserAds(userId: string) {
   try {
     const { data: ads, error } = await supabase
