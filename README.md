@@ -1,4 +1,4 @@
-# Token Ad Platform
+# daraz freebie Platform
 
 A web application where users can earn and spend tokens by viewing and creating advertisements.
 
