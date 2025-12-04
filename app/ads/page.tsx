@@ -108,7 +108,7 @@ export default function BrowseAds() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center gap-8">
             <Link href="/ads" className="text-2xl font-bold text-indigo-600">
-              Token Ads
+              Daraz Freebie 
             </Link>
             <div className="flex gap-4">
               <Link href="/ads" className="text-gray-600 hover:text-indigo-600 font-medium">
