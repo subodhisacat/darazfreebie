@@ -42,7 +42,7 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-indigo-600">Token Ads</h1>
+          <h1 className="text-2xl font-bold text-indigo-600">Daraz Freebie</h1>
           <div className="flex gap-4">
             <Link
               href="/dashboard"
