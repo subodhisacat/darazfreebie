@@ -138,7 +138,7 @@ export default function Dashboard() {
               href="/"
               className="text-2xl font-bold text-indigo-600"
             >
-              Token Ads
+              Daraz Freebie 
             </Link>
             <div className="flex gap-4">
               <Link
